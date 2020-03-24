@@ -1260,7 +1260,7 @@ The colors are determined by the `face-foreground' and
       (remove-hook 'after-revert-hook #'pdf-view-set-theme-background t)
       (advice-remove 'enable-theme #'pdf-view-refresh-all-themed-buffers)
       (pdf-info-setoptions :render/usecolors nil)))
-    (pdf-view-refresh-all-buffers))
+    (pdf-view-refresh-all-themed-buffers))
 
 (when pdf-view-use-unicode-ligther
   ;; This check uses an implementation detail, which hopefully gets the
