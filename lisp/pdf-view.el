@@ -1248,17 +1248,18 @@ The colors are determined by the `face-foreground' and
 `face-background' of the currently active theme."
 
   nil " Thm" nil
-  ;; FIXME: Maybe these options should be passed stateless to pdf-info-renderpage ?
     (cond
      (pdf-view-themed-minor-mode
       (pdf-view-set-theme-background)
       (add-hook 'after-save-hook #'pdf-view-set-theme-background nil t)
       (add-hook 'after-revert-hook #'pdf-view-set-theme-background nil t)
-      (advice-add 'enable-theme :after #'pdf-view-refresh-all-themed-buffers))
+      (advice-add 'enable-theme :after #'pdf-view-refresh-all-themed-buffers)
+      (advice-add 'disable-theme :after #'pdf-view-refresh-all-themed-buffers))
      (t
       (remove-hook 'after-save-hook #'pdf-view-set-theme-background t)
       (remove-hook 'after-revert-hook #'pdf-view-set-theme-background t)
       (advice-remove 'enable-theme #'pdf-view-refresh-all-themed-buffers)
+      (advice-remove 'disable-theme #'pdf-view-refresh-all-themed-buffers)
       (pdf-info-setoptions :render/usecolors nil)))
     (pdf-view-refresh-all-themed-buffers))
 
