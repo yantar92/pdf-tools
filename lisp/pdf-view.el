@@ -330,6 +330,7 @@ regarding display of the region in the later function.")
     (define-key map (kbd "C-c C-i") 'pdf-view-extract-region-image)
     ;; Rendering
     (define-key map (kbd "C-c C-r m") 'pdf-view-midnight-minor-mode)
+    (define-key map (kbd "C-c C-r t") 'pdf-view-themed-minor-mode)
     (define-key map (kbd "C-c C-r p") 'pdf-view-printer-minor-mode)
     map)
   "Keymap used by `pdf-view-mode' when displaying a doc as a set of images.")
@@ -1257,6 +1258,49 @@ The colors are determined by the variable
       (pdf-view--set-default-colors))))
   (pdf-cache-clear-images)
   (pdf-view-redisplay t))
+
+(defun pdf-view-refresh-all-themed-buffers (&optional theme)
+  "Ensure all PDFView buffers use the new theme for their
+background and background colors.
+
+THEME is unused; it is simply present to not break :after advice
+that invokes it."
+  (mapc (lambda (buffer)
+          (with-current-buffer buffer
+            (when pdf-view-themed-minor-mode
+              (pdf-cache-clear-images)
+              (pdf-view-set-theme-background)
+              (pdf-view-redisplay t))))
+        (buffer-list)) nil)
+
+(defun pdf-view-set-theme-background ()
+  (pdf-tools-assert-pdf-buffer)
+  (pdf-info-setoptions
+   :render/foreground (face-foreground 'default nil)
+   :render/background (face-background 'default nil)
+   :render/usecolors t))
+
+(define-minor-mode pdf-view-themed-minor-mode
+  "Apply a color-filter to all pdf-view buffers that keeps synchronized with the Emacs theme.
+
+The colors are determined by the `face-foreground' and
+`face-background' of the currently active theme."
+
+  nil " Thm" nil
+    (cond
+     (pdf-view-themed-minor-mode
+      (pdf-view-set-theme-background)
+      (add-hook 'after-save-hook #'pdf-view-set-theme-background nil t)
+      (add-hook 'after-revert-hook #'pdf-view-set-theme-background nil t)
+      (advice-add 'enable-theme :after #'pdf-view-refresh-all-themed-buffers)
+      (advice-add 'disable-theme :after #'pdf-view-refresh-all-themed-buffers))
+     (t
+      (remove-hook 'after-save-hook #'pdf-view-set-theme-background t)
+      (remove-hook 'after-revert-hook #'pdf-view-set-theme-background t)
+      (advice-remove 'enable-theme #'pdf-view-refresh-all-themed-buffers)
+      (advice-remove 'disable-theme #'pdf-view-refresh-all-themed-buffers)
+      (pdf-info-setoptions :render/usecolors nil)))
+    (pdf-view-refresh-all-themed-buffers))
 
 (when pdf-view-use-unicode-ligther
   ;; This check uses an implementation detail, which hopefully gets the
