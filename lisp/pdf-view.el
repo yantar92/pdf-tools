@@ -1220,12 +1220,9 @@ The colors are determined by the variable
   (pdf-cache-clear-images)
   (pdf-view-redisplay t))
 
-(defun pdf-view-refresh-all-themed-buffers (&optional theme)
+(defun pdf-view-refresh-all-themed-buffers (&optional _)
   "Ensure all PDFView buffers use the new theme for their
-background and background colors.
-
-THEME is unused; it is simply present to not break :after advice
-that invokes it."
+background and background colors."
   (mapc (lambda (buffer)
           (with-current-buffer buffer
             (when (eq major-mode 'pdf-view-mode)
