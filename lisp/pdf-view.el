@@ -120,6 +120,15 @@ This should be a cons \(FOREGROUND . BACKGROUND\) of colors."
   :type '(cons (color :tag "Foreground")
                (color :tag "Background")))
 
+(defcustom pdf-view-colors nil
+  "Colors used to render pdf.
+
+This should be a cons \(FOREGROUND . BACKGROUND\) of colors or
+'default to use default font."
+  :group 'pdf-view
+  :type '(cons (color :tag "Foreground")
+               (color :tag "Background")))
+
 (defcustom pdf-view-change-page-hook nil
   "Hook run after changing to another page, but before displaying it.
 
@@ -325,6 +334,22 @@ regarding display of the region in the later function.")
     map)
   "Keymap used by `pdf-view-mode' when displaying a doc as a set of images.")
 
+(defun pdf-view--set-default-colors ()
+  "Setup default rendering colors."
+  (pcase pdf-view-colors
+    (`((pred #'stringp) (pred #'stringp))
+     (pdf-info-setoptions
+      :render/foreground (car pdf-view-colors)
+      :render/background (cdr pdf-view-colors)
+      :render/usecolors t))
+    ('default
+      (pdf-info-setoptions
+       :render/foreground (face-foreground 'default)
+       :render/background (face-background 'default)
+       :render/usecolors t))
+    (_
+     (pdf-info-setoptions :render/usecolors nil))))
+
 (define-derived-mode pdf-view-mode special-mode "PDFView"
   "Major mode in PDF buffers.
 
@@ -413,6 +438,11 @@ PNG images in Emacs buffers."
   (add-hook 'kill-buffer-hook 'pdf-view-close-document nil t)
   (pdf-view-add-hotspot-function
    'pdf-view-text-regions-hotspots-function -9)
+
+  ;; Setup colors
+  (add-hook 'after-save-hook #'pdf-view--set-default-colors nil t)
+  (add-hook 'after-revert-hook #'pdf-view--set-default-colors nil t)
+  (funcall #'pdf-view--set-default-colors)
 
   ;; Keep track of display info
   (add-hook 'image-mode-new-window-functions
@@ -1184,11 +1214,16 @@ This tells the various modes to use their face's dark colors."
                   (pdf-info-setoptions :render/printed t))))
     (cond
      (pdf-view-printer-minor-mode
+      (remove-hook 'after-save-hook #'pdf-view--set-default-colors t)
+      (remove-hook 'after-revert-hook #'pdf-view--set-default-colors t)
       (add-hook 'after-save-hook enable nil t)
       (add-hook 'after-revert-hook enable nil t))
      (t
-      (remove-hook 'after-save-hook enable t)
-      (remove-hook 'after-revert-hook enable t))))
+      (remove-hook 'after-save-hook #'pdf-view--set-default-colors t)
+      (remove-hook 'after-revert-hook #'pdf-view--set-default-colors t)
+      (add-hook 'after-save-hook enable nil t)
+      (add-hook 'after-revert-hook enable nil t)
+      (pdf-view--set-default-colors))))
   (pdf-info-setoptions :render/printed pdf-view-printer-minor-mode)
   (pdf-cache-clear-images)
   (pdf-view-redisplay t))
@@ -1209,13 +1244,17 @@ The colors are determined by the variable
                    :render/usecolors t))))
     (cond
      (pdf-view-midnight-minor-mode
+      (remove-hook 'after-save-hook #'pdf-view--set-default-colors t)
+      (remove-hook 'after-revert-hook #'pdf-view--set-default-colors t)
       (add-hook 'after-save-hook enable nil t)
       (add-hook 'after-revert-hook enable nil t)
       (funcall enable))
      (t
       (remove-hook 'after-save-hook enable t)
       (remove-hook 'after-revert-hook enable t)
-      (pdf-info-setoptions :render/usecolors nil))))
+      (add-hook 'after-save-hook #'pdf-view--set-default-colors nil t)
+      (add-hook 'after-revert-hook #'pdf-view--set-default-colors nil t)
+      (pdf-view--set-default-colors))))
   (pdf-cache-clear-images)
   (pdf-view-redisplay t))
 
