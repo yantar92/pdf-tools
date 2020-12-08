@@ -1228,13 +1228,15 @@ THEME is unused; it is simply present to not break :after advice
 that invokes it."
   (mapc (lambda (buffer)
           (with-current-buffer buffer
-            (when pdf-view-themed-minor-mode
+            (when (eq major-mode 'pdf-view-mode)
+              (when pdf-view-themed-minor-mode
+                (pdf-view-set-theme-background))
               (pdf-cache-clear-images)
-              (pdf-view-set-theme-background)
               (pdf-view-redisplay t))))
         (buffer-list)) nil)
 
 (defun pdf-view-set-theme-background ()
+  "Ser foreground and background accourding to default font."
   (pdf-tools-assert-pdf-buffer)
   (pdf-info-setoptions
    :render/foreground (face-foreground 'default nil)
