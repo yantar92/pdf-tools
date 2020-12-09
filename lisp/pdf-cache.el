@@ -26,6 +26,8 @@
 (require 'pdf-info)
 (require 'pdf-util)
 
+(declare-function pdf-view-current-page "pdf-view" (&optional window))
+
 
 ;; * ================================================================== *
 ;; * Customiazations
