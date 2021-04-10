@@ -312,7 +312,7 @@ This is a Isearch interface function."
          pdf-isearch-current-match
          pdf-isearch-current-matches))
       (image-set-window-hscroll hscroll)
-      (image-set-window-vscroll vscroll))))
+      (pdf-util-image-set-window-vscroll vscroll))))
 
 (defun pdf-isearch-wrap-function ()
   "Go to first or last page.

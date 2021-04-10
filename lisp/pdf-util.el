@@ -107,10 +107,10 @@ remove the entry if the new value is `eql' to DEFAULT."
          (when cleanup
            (setq image-mode-winprops-alist
                  (delq nil (mapcar (lambda (winprop)
-                                     (let ((w (car-safe winprop)))
-                                       (if (or (not (windowp w)) (window-live-p w))
-                                           winprop)))
-                                   image-mode-winprops-alist))))
+                                   (let ((w (car-safe winprop)))
+                                     (if (or (not (windowp w)) (window-live-p w))
+                                         winprop)))
+                                 image-mode-winprops-alist))))
          (let ((winprops (assq window image-mode-winprops-alist)))
            ;; For new windows, set defaults from the latest.
            (if winprops
@@ -126,6 +126,9 @@ remove the entry if the new value is `eql' to DEFAULT."
              (run-hook-with-args 'image-mode-new-window-functions winprops))
            winprops)))))
 
+(defun pdf-util-image-set-window-vscroll (vscroll)
+  "Work around master regression where `image-set-window-vscroll' now accepts number of pixels."
+  (image-set-window-vscroll (* vscroll (frame-char-height))))
 
 
 ;; * ================================================================== *
@@ -507,7 +510,7 @@ which case scroll as much as possible."
   (let ((vscroll (pdf-util-required-vscroll edges eager-p))
         (hscroll (pdf-util-required-hscroll edges eager-p)))
     (when vscroll
-      (image-set-window-vscroll vscroll))
+      (pdf-util-image-set-window-vscroll vscroll))
     (when hscroll
       (image-set-window-hscroll hscroll))))
 
@@ -696,7 +699,7 @@ string."
             ,@tooltip-frame-parameters))
          (tooltip-hide-delay (or timeout 3)))
     (when vscroll
-      (image-set-window-vscroll vscroll))
+      (pdf-util-image-set-window-vscroll vscroll))
     (setq dy (max 0 (- dy
                        (cdr (pdf-view-image-offset))
                        (window-vscroll nil t)

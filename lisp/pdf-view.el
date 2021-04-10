@@ -1614,7 +1614,7 @@ See also `pdf-view-bookmark-make-record'."
                   (image-set-window-hscroll
                    (round (/ (* (car origin) (car size))
                              (frame-char-width))))
-                  (image-set-window-vscroll
+                  (pdf-util-image-set-window-vscroll
                    (round (/ (* (cdr origin) (cdr size))
                              (if pdf-view-have-image-mode-pixel-vscroll
                                  1
