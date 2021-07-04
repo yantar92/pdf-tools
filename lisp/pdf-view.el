@@ -25,6 +25,7 @@
 ;;; Code:
 
 (require 'image-mode)
+(require 'pdf-macs)
 (require 'pdf-util)
 (require 'pdf-info)
 (require 'pdf-cache)
@@ -91,10 +92,7 @@ FIXME: Explain dis-/advantages of imagemagick and png."
 This variable affects both the reuse of higher-resolution images
 as lower-resolution ones by down-scaling the image.  As well as
 the rendering of higher-resolution for high-resolution displays,
-if available.
-
-It has no effect, unless either the imagemagick or image-io
-image-format is available."
+if available."
   :group 'pdf-view
   :type 'boolean)
 
@@ -113,7 +111,7 @@ image-format is available."
   :group 'pdf-tools-faces)
 
 (defcustom pdf-view-midnight-colors '("#839496" . "#002b36" )
-  "Colors used when `pdf-view-midnight-minor-mode' is activated.
+  "Colors used when command `pdf-view-midnight-minor-mode' is activated.
 
 This should be a cons \(FOREGROUND . BACKGROUND\) of colors."
   :group 'pdf-view
@@ -169,7 +167,7 @@ See :relief property in Info node `(elisp) Image Descriptors'."
   :type '(integer :tag "Pixel"))
 
 (defcustom pdf-view-use-unicode-ligther t
-  "Whether to use unicode symbols in the mode-line
+  "Decide whether to use unicode symbols in the mode-line.
 
 On some systems finding a font which supports those symbols can
 take some time.  If you don't want to spend that time waiting and
@@ -222,29 +220,6 @@ regarding display of the region in the later function.")
 (defvar-local pdf-view-register-alist nil
   "Local, dedicated register for PDF positions.")
 
-(defmacro pdf-view-current-page (&optional window)
-  ;;TODO: write documentation!
-  `(image-mode-window-get 'page ,window))
-
-(defmacro pdf-view-current-overlay (&optional window)
-  ;;TODO: write documentation!
-  `(image-mode-window-get 'overlay ,window))
-
-(defmacro pdf-view-current-image (&optional window)
-  ;;TODO: write documentation!
-  `(image-mode-window-get 'image ,window))
-
-(defmacro pdf-view-current-slice (&optional window)
-  ;;TODO: write documentation!
-  `(image-mode-window-get 'slice ,window))
-
-(defmacro pdf-view-current-window-size (&optional window)
-  ;;TODO: write documentation!
-  `(image-mode-window-get 'window-size ,window))
-
-(defmacro pdf-view-window-needs-redisplay (&optional window)
-  `(image-mode-window-get 'needs-redisplay ,window))
-
 (defun pdf-view-current-pagelabel (&optional window)
   (nth (1- (pdf-view-current-page window)) (pdf-info-pagelabels)))
 
@@ -259,7 +234,7 @@ regarding display of the region in the later function.")
 
 (defconst pdf-view-have-image-mode-pixel-vscroll
   (>= emacs-major-version 27)
-  "Whether image-mode scrolls vertically by pixels.")
+  "Whether `image-mode' scrolls vertically by pixels.")
 
 
 ;; * ================================================================== *
@@ -282,10 +257,14 @@ regarding display of the region in the later function.")
     (define-key map (kbd "DEL")       'pdf-view-scroll-down-or-previous-page)
     (define-key map (kbd "C-n")       'pdf-view-next-line-or-next-page)
     (define-key map (kbd "<down>")    'pdf-view-next-line-or-next-page)
-    (define-key map (kbd "C-p")       'pdf-view-previous-line-or-previous-page)
-    (define-key map (kbd "<up>")      'pdf-view-previous-line-or-previous-page)
-    (define-key map (kbd "M-<")       'pdf-view-first-page)
-    (define-key map (kbd "M->")       'pdf-view-last-page)
+    (define-key map [remap next-line] 'pdf-view-next-line-or-next-page)
+    (define-key map (kbd "C-p")           'pdf-view-previous-line-or-previous-page)
+    (define-key map (kbd "<up>")          'pdf-view-previous-line-or-previous-page)
+    (define-key map [remap previous-line] 'pdf-view-previous-line-or-previous-page)
+    (define-key map (kbd "M-<")                 'pdf-view-first-page)
+    (define-key map [remap beginning-of-buffer] 'pdf-view-first-page)
+    (define-key map (kbd "M->")                 'pdf-view-last-page)
+    (define-key map [remap end-of-buffer]       'pdf-view-last-page)
     (define-key map [remap goto-line] 'pdf-view-goto-page)
     (define-key map (kbd "M-g l")     'pdf-view-goto-label)
     (define-key map (kbd "RET")       'image-next-line)
@@ -627,7 +606,7 @@ windows."
   (save-selected-window
     ;; Select the window for the hooks below.
     (when (window-live-p window)
-      (select-window window))
+      (select-window window 'norecord))
     (let ((changing-p
            (not (eq page (pdf-view-current-page window)))))
       (when changing-p
@@ -887,7 +866,7 @@ again."
   "Automatically slice pages according to their bounding boxes.
 
 See also `pdf-view-set-slice-from-bounding-box'."
-  nil nil nil
+  :group 'pdf-view
   (pdf-util-assert-pdf-buffer)
   (cond
    (pdf-view-auto-slice-minor-mode
@@ -929,12 +908,6 @@ See also `pdf-view-use-imagemagick'."
         (t
          (error "PNG image supported not compiled into Emacs"))))
 
-(defun pdf-view-use-scaling-p ()
-  "Return t if scaling should be used."
-  (and (memq (pdf-view-image-type)
-             '(imagemagick image-io))
-       pdf-view-use-scaling))
-
 (defmacro pdf-view-create-image (data &rest props)
   ;; TODO: add DATA and PROPS to docstring.
   "Like `create-image', but with set DATA-P and TYPE arguments."
@@ -953,7 +926,7 @@ See also `pdf-view-use-imagemagick'."
   (let* ((size (pdf-view-desired-image-size page window))
          (data (pdf-cache-renderpage
                 page (car size)
-                (if (not (pdf-view-use-scaling-p))
+                (if (not pdf-view-use-scaling)
                     (car size)
                   (* 2 (car size)))))
          (hotspots (pdf-view-apply-hotspot-functions
@@ -1168,7 +1141,7 @@ This will display a text cursor, when hovering over them."
   "Mode for PDF documents with dark background.
 
 This tells the various modes to use their face's dark colors."
-  nil nil nil
+  :group 'pdf-view
   (pdf-util-assert-pdf-buffer)
   ;; FIXME: This should really be run in a hook.
   (when (bound-and-true-p pdf-isearch-active-mode)
@@ -1179,7 +1152,8 @@ This tells the various modes to use their face's dark colors."
 
 (define-minor-mode pdf-view-printer-minor-mode
   "Display the PDF as it would be printed."
-  nil " Prn" nil
+  :group 'pdf-view
+  :lighter " Prn"
   (pdf-util-assert-pdf-buffer)
   (let ((enable (lambda ()
                   (pdf-info-setoptions :render/printed t))))
@@ -1199,8 +1173,8 @@ This tells the various modes to use their face's dark colors."
 
 The colors are determined by the variable
 `pdf-view-midnight-colors', which see. "
-
-  nil " Mid" nil
+  :group 'pdf-view
+  :lighter " Mid"
   (pdf-util-assert-pdf-buffer)
   ;; FIXME: Maybe these options should be passed stateless to pdf-info-renderpage ?
   (let ((enable (lambda ()
@@ -1220,47 +1194,42 @@ The colors are determined by the variable
   (pdf-cache-clear-images)
   (pdf-view-redisplay t))
 
-(defun pdf-view-refresh-all-themed-buffers (&optional _)
-  "Ensure all PDFView buffers use the new theme for their
-background and background colors."
-  (mapc (lambda (buffer)
-          (with-current-buffer buffer
-            (when (eq major-mode 'pdf-view-mode)
-              (when pdf-view-themed-minor-mode
-                (pdf-view-set-theme-background))
-              (pdf-cache-clear-images)
-              (pdf-view-redisplay t))))
-        (buffer-list)) nil)
+(defun pdf-view-refresh-themed-buffer (&optional get-theme)
+  "Refresh the current buffer to activate applied colors.
+
+When GET-THEME is non-nil, also reset the applied colors to the
+current theme's colors."
+  (pdf-util-assert-pdf-buffer)
+  (pdf-cache-clear-images)
+  (when get-theme
+    (pdf-view-set-theme-background))
+  (pdf-view-redisplay t))
 
 (defun pdf-view-set-theme-background ()
-  "Ser foreground and background accourding to default font."
-  (pdf-tools-assert-pdf-buffer)
+  "Set the buffer's color filter to correspond to the current Emacs theme."
+  (pdf-util-assert-pdf-buffer)
   (pdf-info-setoptions
    :render/foreground (face-foreground 'default nil)
    :render/background (face-background 'default nil)
    :render/usecolors t))
 
 (define-minor-mode pdf-view-themed-minor-mode
-  "Apply a color-filter to all pdf-view buffers that keeps synchronized with the Emacs theme.
+  "Synchronize color filter with the present Emacs theme.
 
 The colors are determined by the `face-foreground' and
 `face-background' of the currently active theme."
-
-  nil " Thm" nil
-    (cond
-     (pdf-view-themed-minor-mode
-      (pdf-view-set-theme-background)
-      (add-hook 'after-save-hook #'pdf-view-set-theme-background nil t)
-      (add-hook 'after-revert-hook #'pdf-view-set-theme-background nil t)
-      (advice-add 'enable-theme :after #'pdf-view-refresh-all-themed-buffers)
-      (advice-add 'disable-theme :after #'pdf-view-refresh-all-themed-buffers))
-     (t
-      (remove-hook 'after-save-hook #'pdf-view-set-theme-background t)
-      (remove-hook 'after-revert-hook #'pdf-view-set-theme-background t)
-      (advice-remove 'enable-theme #'pdf-view-refresh-all-themed-buffers)
-      (advice-remove 'disable-theme #'pdf-view-refresh-all-themed-buffers)
-      (pdf-info-setoptions :render/usecolors nil)))
-    (pdf-view-refresh-all-themed-buffers))
+  :group 'pdf-view
+  :lighter " Thm"
+  (pdf-util-assert-pdf-buffer)
+  (cond
+   (pdf-view-themed-minor-mode
+    (add-hook 'after-save-hook #'pdf-view-set-theme-background nil t)
+    (add-hook 'after-revert-hook #'pdf-view-set-theme-background nil t))
+   (t
+    (remove-hook 'after-save-hook #'pdf-view-set-theme-background t)
+    (remove-hook 'after-revert-hook #'pdf-view-set-theme-background t)
+    (pdf-info-setoptions :render/usecolors nil)))
+  (pdf-view-refresh-themed-buffer pdf-view-themed-minor-mode))
 
 (when pdf-view-use-unicode-ligther
   ;; This check uses an implementation detail, which hopefully gets the
@@ -1304,7 +1273,7 @@ supersede hotspots in lower ones."
   ;; TODO: write documentation!
   (unless pdf-view-inhibit-hotspots
     (save-selected-window
-      (when window (select-window window))
+      (when window (select-window window 'norecord))
       (apply 'nconc
              (mapcar (lambda (fn)
                        (funcall fn page image-size))
@@ -1461,7 +1430,8 @@ This is more useful for commands like
               `(,(car colors) ,(cdr colors) 0.35 ,@region))
            (pdf-info-renderpage-text-regions
             page width nil nil
-            `(,(car colors) ,(cdr colors) ,@region)))))))
+            `(,(car colors) ,(cdr colors) ,@region)))
+       :width width))))
 
 (defun pdf-view-kill-ring-save ()
   "Copy the region to the `kill-ring'."

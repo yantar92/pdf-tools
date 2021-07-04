@@ -25,6 +25,7 @@
 
 ;;; Code:
 
+(require 'pdf-macs)
 (require 'cl-lib)
 (require 'format-spec)
 (require 'faces)
@@ -33,10 +34,7 @@
 ;; which won't succeed, if pdf-view.el isn't loaded.
 (declare-function pdf-view-image-size "pdf-view")
 (declare-function pdf-view-image-offset "pdf-view")
-(declare-function pdf-view-current-image "pdf-view")
-(declare-function pdf-view-current-overlay "pdf-view")
 (declare-function pdf-cache-pagesize "pdf-cache")
-
 (declare-function pdf-view-image-type "pdf-view")
 
 
@@ -93,6 +91,7 @@ remove the entry if the new value is `eql' to DEFAULT."
   (require 'image-mode)
   (defvar image-mode-winprops-original-function
     (symbol-function 'image-mode-winprops))
+  (defvar image-mode-winprops-alist)
   (eval-after-load "image-mode"
     '(defun image-mode-winprops (&optional window cleanup)
        (if (not (eq major-mode 'pdf-view-mode))
@@ -470,9 +469,11 @@ Keep CONTEXT-PIXEL pixel of the image visible at the bottom and
 top of the window.  CONTEXT-PIXEL defaults to an equivalent pixel
 value of `next-screen-context-lines'.
 
-Return the required vscroll in lines or nil, if scrolling is not
-needed."
+Return the required vscroll in pixels or nil, if scrolling is not
+needed.
 
+Note: For versions of emacs before 27 this will return lines instead of
+pixels. This is because of a change that occurred to `image-mode' in 27."
   (pdf-util-assert-pdf-window)
   (let* ((win (window-inside-pixel-edges))
          (image-height (cdr (pdf-view-image-size t)))
@@ -486,20 +487,28 @@ needed."
                                    (frame-char-height))))
              ;;Be careful not to modify edges.
              (edges-top (- edges-top context-pixel))
-             (edges-bot (+ edges-bot context-pixel)))
-        (if (< edges-top image-top)
-            (round (/ (max 0 (if eager-p
-                                 (- edges-bot win-height)
-                               edges-top))
-                      (float (frame-char-height))))
-          (if (> (min image-height
-                      edges-bot)
-                 (+ image-top win-height))
-              (round (/ (min (- image-height win-height)
-                             (if eager-p
-                                 edges-top
-                               (- edges-bot win-height)))
-                        (float (frame-char-height))))))))))
+             (edges-bot (+ edges-bot context-pixel))
+             (vscroll
+              (cond ((< edges-top image-top)
+                     (max 0 (if eager-p
+                                (- edges-bot win-height)
+                              edges-top)))
+                    ((> (min image-height
+                             edges-bot)
+                        (+ image-top win-height))
+                     (min (- image-height win-height)
+                          (if eager-p
+                              edges-top
+                            (- edges-bot win-height)))))))
+
+
+        (when vscroll
+          (round
+           ;; `image-set-window-vscroll' changed in version 27 to using
+           ;; pixels, not lines.
+           (if (version< emacs-version "27")
+               (/ vscroll (float (frame-char-height)))
+               vscroll)))))))
 
 (defun pdf-util-scroll-to-edges (edges &optional eager-p)
   "Scroll window such that image EDGES are visible.
@@ -939,15 +948,14 @@ See also `regexp-quote'."
 
 (defun pdf-util-frame-scale-factor ()
   "Return the frame scale factor depending on the image type used for display.
-When `pdf-view-use-scaling' is non-nil and imagemagick or
-image-io are used as the image type for display, return the
-backing-scale-factor of the frame if available. If a
-backing-scale-factor attribute isn't available, return 2 if the
+When `pdf-view-use-scaling' is non-nil, return the scale factor of the frame
+if available. If the scale factor isn't available, return 2 if the
 frame's PPI is larger than 180. Otherwise, return 1."
-  (if (and pdf-view-use-scaling
-           (memq (pdf-view-image-type) '(imagemagick image-io))
-           (fboundp 'frame-monitor-attributes))
-      (or (cdr (assq 'backing-scale-factor (frame-monitor-attributes)))
+  (if pdf-view-use-scaling
+      (or (and (fboundp 'frame-scale-factor)
+               (truncate (frame-scale-factor)))
+          (and (fboundp 'frame-monitor-attributes)
+               (cdr (assq 'backing-scale-factor (frame-monitor-attributes))))
           (if (>= (pdf-util-frame-ppi) 180)
               2
             1))
